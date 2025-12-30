@@ -5,6 +5,7 @@ node_modules/
 
 # Expo
 .expo/
+.expo-shared/
 dist/
 web-build/
 expo-env.d.ts
@@ -18,6 +19,22 @@ expo-env.d.ts
 *.key
 *.mobileprovision
 
+# Logs
+npm-debug.*
+yarn-debug.*
+yarn-error.*
+
+# Environment
+.env.local
+.env.*.local
+
+# IDE
+.idea/
+.vscode/
+*.swp
+*.swo
+*~
+.DS_Store
 # Metro
 .metro-health-check*
 
