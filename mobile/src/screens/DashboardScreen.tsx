@@ -87,9 +87,8 @@ const DashboardScreen: React.FC<DashboardScreenProps> = ({ navigation }) => {
         <Card style={styles.aboutCard}>
           <Text style={styles.aboutTitle}>English Virtual Lab</Text>
           <Text style={styles.aboutText}>
-            Sebuah platform pembelajaran bahasa Inggris yang dirancang khusus untuk membantu Anda menguasai bahasa Inggris melalui berbagai metode pembelajaran interaktif.
+            Sebuah platform pembelajaran bahasa Inggris yang dirancang khusus untuk membantu Anda menguasai bahasa Inggris melalui berbagai metode pembelajaran interaktif yaitu artikel, video, dan kuis.
           </Text>
-          <Text style={styles.features}>📚 Artikel - 📹 Video - 🧠 Kuis</Text>
         </Card>
       </View>
 
@@ -133,7 +132,7 @@ const DashboardScreen: React.FC<DashboardScreenProps> = ({ navigation }) => {
 
       {/* Statistics */}
       <View style={styles.section}>
-        <Text style={styles.sectionTitle}>Statistik Belajar Anda</Text>
+        <Text style={styles.sectionTitle}>Statistik Belajar</Text>
         <View style={styles.statsGrid}>
           <Card style={styles.statCard}>
             <Text style={styles.statValue}>{avgScore}%</Text>

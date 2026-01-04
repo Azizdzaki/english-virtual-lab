@@ -69,7 +69,7 @@ export class QuizService {
       });
 
       const { data, error } = await supabase
-        .from('quiz_attempts')
+        .from('quiz_results')
         .insert([
           {
             user_id: userId,
@@ -104,7 +104,7 @@ export class QuizService {
   static async getUserQuizAttempts(userId: string) {
     try {
       const { data, error } = await supabase
-        .from('quiz_attempts')
+        .from('quiz_results')
         .select('*')
         .eq('user_id', userId)
         .order('created_at', { ascending: false });
@@ -124,7 +124,7 @@ export class QuizService {
   static async getQuizAttemptDetail(attemptId: string) {
     try {
       const { data, error } = await supabase
-        .from('quiz_attempts')
+        .from('quiz_results')
         .select('*')
         .eq('id', attemptId)
         .single();

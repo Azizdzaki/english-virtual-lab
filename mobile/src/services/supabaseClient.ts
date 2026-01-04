@@ -19,3 +19,5 @@ export const isSupabaseConfigured = () => {
   return SUPABASE_URL !== "https://xpisakzvqushpbdqjamm.supabase.co" && 
          SUPABASE_KEY !== "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InhwaXNha3p2cXVzaHBiZHFqYW1tIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NjE5NjYxMTksImV4cCI6MjA3NzU0MjExOX0.JbH1q80xVI8T5wb2LGuk9rwJWCv1EOtoIi9eROmez6w";
 };
+
+
