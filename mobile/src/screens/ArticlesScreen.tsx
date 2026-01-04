@@ -1,55 +1,78 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState } from 'react';
 import {
   View,
   Text,
   StyleSheet,
   ScrollView,
   RefreshControl,
+  TouchableOpacity,
+  Linking,
 } from 'react-native';
-import { ArticleService } from '../services';
 import { Article } from '../types';
-import { Card, Loading, Error } from '../components';
-import { formatDate, truncateText } from '../utils';
+import { Card, Loading } from '../components';
+import { formatDate } from '../utils';
 
 interface ArticlesScreenProps {
   navigation: any;
 }
 
+// Hardcoded articles data
+const ARTICLES_DATA: Article[] = [
+  {
+    id: '1',
+    title: '10 Common English Mistakes',
+    content: 'Learn about the most common mistakes made by English learners and how to avoid them.',
+    author: 'English Team',
+    category: 'Grammar',
+    url: 'https://www.britannica.com/topic/English-language',
+    thumbnail_url: 'https://via.placeholder.com/400x200?text=Grammar',
+    published_at: '2025-12-30',
+    created_at: '2025-12-30',
+    updated_at: '2025-12-30',
+  },
+  {
+    id: '2',
+    title: 'Pronunciation Tips',
+    content: 'Improve your English pronunciation with these practical tips and tricks.',
+    author: 'Speech Expert',
+    category: 'Pronunciation',
+    url: 'https://www.oxfordlearnersdictionaries.com/',
+    thumbnail_url: 'https://via.placeholder.com/400x200?text=Pronunciation',
+    published_at: '2025-12-30',
+    created_at: '2025-12-30',
+    updated_at: '2025-12-30',
+  },
+  {
+    id: '3',
+    title: 'English Phrasal Verbs',
+    content: 'Master the most important phrasal verbs in English with examples.',
+    author: 'Vocabulary Expert',
+    category: 'Vocabulary',
+    url: 'https://www.cambridge.org/us/english/',
+    thumbnail_url: 'https://via.placeholder.com/400x200?text=Vocabulary',
+    published_at: '2025-12-30',
+    created_at: '2025-12-30',
+    updated_at: '2025-12-30',
+  },
+];
+
 const ArticlesScreen: React.FC<ArticlesScreenProps> = ({ navigation }) => {
-  const [articles, setArticles] = useState<Article[]>([]);
-  const [isLoading, setIsLoading] = useState(true);
-  const [error, setError] = useState<string | null>(null);
   const [refreshing, setRefreshing] = useState(false);
-
-  const loadArticles = async () => {
-    try {
-      setError(null);
-      const data = await ArticleService.getArticles();
-      setArticles(data);
-    } catch (err: any) {
-      setError(err.message || 'Failed to load articles');
-    } finally {
-      setIsLoading(false);
-      setRefreshing(false);
-    }
-  };
-
-  useEffect(() => {
-    loadArticles();
-  }, []);
 
   const onRefresh = () => {
     setRefreshing(true);
-    loadArticles();
+    setTimeout(() => setRefreshing(false), 500);
   };
 
-  if (isLoading) {
-    return <Loading message="Memuat artikel..." />;
-  }
-
-  if (error) {
-    return <Error message={error} onRetry={loadArticles} />;
-  }
+  const handleOpenArticle = (article: Article) => {
+    if (article.url) {
+      Linking.openURL(article.url).catch(() => {
+        alert('Tidak bisa membuka artikel');
+      });
+    } else {
+      alert('Link artikel tidak tersedia');
+    }
+  };
 
   return (
     <ScrollView
@@ -66,21 +89,22 @@ const ArticlesScreen: React.FC<ArticlesScreenProps> = ({ navigation }) => {
       </View>
 
       <View style={styles.contentContainer}>
-        {articles.length > 0 ? (
-          articles.map((article) => (
-            <Card key={article.id} style={styles.articleCard}>
+        {ARTICLES_DATA.map((article) => (
+          <TouchableOpacity 
+            key={article.id}
+            onPress={() => handleOpenArticle(article)}
+            activeOpacity={0.7}
+          >
+            <Card style={styles.articleCard}>
               <Text style={styles.articleTitle}>{article.title}</Text>
-              <Text style={styles.author}>Oleh: {article.author}</Text>
               <Text style={styles.category}>{article.category}</Text>
-              <Text style={styles.contentText} numberOfLines={2}>
-                {truncateText(article.content, 150)}
+              <Text style={styles.contentText}>
+                {article.content}
               </Text>
-              <Text style={styles.date}>{formatDate(article.published_at)}</Text>
+              <Text style={styles.date}>{formatDate(article.created_at)}</Text>
             </Card>
-          ))
-        ) : (
-          <Text style={styles.noDataText}>Belum ada artikel</Text>
-        )}
+          </TouchableOpacity>
+        ))}
       </View>
     </ScrollView>
   );
@@ -120,11 +144,6 @@ const styles = StyleSheet.create({
     color: '#1f2937',
     marginBottom: 8,
     lineHeight: 22,
-  },
-  author: {
-    fontSize: 12,
-    color: '#6b7280',
-    marginBottom: 4,
   },
   category: {
     fontSize: 12,

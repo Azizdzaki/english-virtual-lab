@@ -8,7 +8,7 @@ export class ArticleService {
       const { data, error } = await supabase
         .from('articles')
         .select('*')
-        .order('published_at', { ascending: false })
+        .order('created_at', { ascending: false })
         .range(offset, offset + limit - 1);
 
       if (error) throw error;

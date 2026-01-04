@@ -5,7 +5,8 @@ export class AuthService {
   // Sign up dengan email dan password
   static async signUp(email: string, password: string, fullName: string) {
     try {
-      const { data, error } = await supabase.auth.signUp({
+      // 1. Create auth user
+      const { data: authData, error: authError } = await supabase.auth.signUp({
         email,
         password,
         options: {
@@ -15,8 +16,29 @@ export class AuthService {
         },
       });
 
-      if (error) throw error;
-      return data;
+      if (authError) throw authError;
+
+      // 2. Create user profile in users table
+      if (authData.user?.id) {
+        const { error: userError } = await supabase
+          .from('users')
+          .insert([
+            {
+              auth_id: authData.user.id,
+              email,
+              full_name: fullName,
+              learning_level: 'beginner',
+              total_quizzes_taken: 0,
+              total_score: 0,
+              average_score: 0,
+              is_active: true,
+            },
+          ]);
+
+        if (userError) throw userError;
+      }
+
+      return authData;
     } catch (error: any) {
       throw {
         message: error.message || 'Sign up failed',
@@ -75,15 +97,45 @@ export class AuthService {
     }
   }
 
-  // Get current user
-  static async getCurrentUser() {
+  // Get current user with full profile from users table
+  static async getCurrentUserWithProfile() {
     try {
-      const { data, error } = await supabase.auth.getUser();
-      if (error) throw error;
-      return data.user;
+      const { data: authUser, error: authError } = await supabase.auth.getUser();
+      if (authError) throw authError;
+
+      if (!authUser.user?.id) {
+        return null;
+      }
+
+      // Get user profile from users table
+      const { data: userProfile, error: profileError } = await supabase
+        .from('users')
+        .select('*')
+        .eq('auth_id', authUser.user.id)
+        .single();
+
+      if (profileError) {
+        // If profile doesn't exist, return basic user info
+        return {
+          id: authUser.user.id,
+          auth_id: authUser.user.id,
+          email: authUser.user.email || '',
+          full_name: authUser.user.user_metadata?.full_name || '',
+          avatar_url: authUser.user.user_metadata?.avatar_url,
+          learning_level: 'beginner' as const,
+          total_quizzes_taken: 0,
+          total_score: 0,
+          average_score: 0,
+          is_active: true,
+          created_at: authUser.user.created_at,
+          updated_at: authUser.user.updated_at,
+        };
+      }
+
+      return userProfile as any;
     } catch (error: any) {
       throw {
-        message: error.message || 'Failed to get user',
+        message: error.message || 'Failed to get user profile',
         code: error.code || 'USER_ERROR',
         status: error.status || 500,
       };
@@ -108,8 +160,105 @@ export class AuthService {
     }
   }
 
+  // Update user profile
+  static async updateProfile(updates: { 
+    full_name?: string; 
+    avatar_url?: string;
+    bio?: string;
+    phone_number?: string;
+    country?: string;
+    learning_level?: 'beginner' | 'intermediate' | 'advanced';
+  }) {
+    try {
+      // Get current user
+      const { data: authUser, error: authError } = await supabase.auth.getUser();
+      if (authError) throw authError;
+
+      if (!authUser.user?.id) {
+        throw new Error('User not authenticated');
+      }
+
+      // Update auth metadata
+      const authUpdateData: any = {};
+      if (updates.full_name) authUpdateData.full_name = updates.full_name;
+      if (updates.avatar_url) authUpdateData.avatar_url = updates.avatar_url;
+
+      if (Object.keys(authUpdateData).length > 0) {
+        const { error: authUpdateError } = await supabase.auth.updateUser({
+          data: authUpdateData,
+        });
+        if (authUpdateError) throw authUpdateError;
+      }
+
+      // Update users table
+      const userUpdateData: any = {};
+      if (updates.full_name) userUpdateData.full_name = updates.full_name;
+      if (updates.avatar_url) userUpdateData.avatar_url = updates.avatar_url;
+      if (updates.bio !== undefined) userUpdateData.bio = updates.bio;
+      if (updates.phone_number !== undefined) userUpdateData.phone_number = updates.phone_number;
+      if (updates.country !== undefined) userUpdateData.country = updates.country;
+      if (updates.learning_level) userUpdateData.learning_level = updates.learning_level;
+
+      const { data, error } = await supabase
+        .from('users')
+        .update(userUpdateData)
+        .eq('auth_id', authUser.user.id)
+        .select();
+
+      if (error) throw error;
+      
+      // Return first item if array, otherwise return data as is
+      const result = Array.isArray(data) ? data[0] : data;
+      return result;
+    } catch (error: any) {
+      throw {
+        message: error.message || 'Profile update failed',
+        code: error.code || 'UPDATE_ERROR',
+        status: error.status || 500,
+      };
+    }
+  }
+
   // Listen to auth state changes
   static onAuthStateChange(callback: (event: any, session: any) => void) {
     return supabase.auth.onAuthStateChange(callback);
+  }
+
+  // Update user statistics after quiz
+  static async updateUserStats(userId: string, quizScore: number, quizPassed: boolean) {
+    try {
+      // Get current user stats
+      const { data: userStats, error: getError } = await supabase
+        .from('users')
+        .select('total_quizzes_taken, total_score, average_score')
+        .eq('id', userId)
+        .single();
+
+      if (getError) throw getError;
+
+      const newTotalQuizzes = (userStats?.total_quizzes_taken || 0) + 1;
+      const newTotalScore = (userStats?.total_score || 0) + Math.round(quizScore);
+      const newAverage = Math.round(newTotalScore / newTotalQuizzes);
+
+      // Update user stats
+      const { data, error } = await supabase
+        .from('users')
+        .update({
+          total_quizzes_taken: newTotalQuizzes,
+          total_score: newTotalScore,
+          average_score: newAverage,
+        })
+        .eq('id', userId)
+        .select();
+
+      if (error) throw error;
+      return Array.isArray(data) ? data[0] : data;
+    } catch (error: any) {
+      throw {
+        message: error.message || 'Failed to update stats',
+        code: error.code || 'STATS_ERROR',
+        status: error.status || 500,
+      };
+    }
   }
 }

@@ -6,13 +6,13 @@ import {
   ScrollView,
   RefreshControl,
   TouchableOpacity,
-  Alert,
 } from 'react-native';
-import { QuizService } from '../services';
 import { useAuth } from '../contexts/AuthContext';
-import { Quiz, QuizAttempt } from '../types';
-import { Card, Loading, Error, Button } from '../components';
+import { QuizService } from '../services';
+import { QuizAttempt } from '../types';
+import { Card, Button } from '../components';
 import { formatDate } from '../utils';
+import { QUIZZES_DATA } from '../data/quizzes';
 
 interface QuizScreenProps {
   navigation: any;
@@ -20,22 +20,17 @@ interface QuizScreenProps {
 
 const QuizScreen: React.FC<QuizScreenProps> = ({ navigation }) => {
   const { user } = useAuth();
-  const [quizzes, setQuizzes] = useState<Quiz[]>([]);
   const [attempts, setAttempts] = useState<QuizAttempt[]>([]);
   const [isLoading, setIsLoading] = useState(true);
-  const [error, setError] = useState<string | null>(null);
   const [refreshing, setRefreshing] = useState(false);
 
   const loadData = async () => {
     if (!user) return;
     try {
-      setError(null);
-      const quizzesData = await QuizService.getQuizzes();
       const attemptsData = await QuizService.getUserQuizAttempts(user.id);
-      setQuizzes(quizzesData);
       setAttempts(attemptsData);
     } catch (err: any) {
-      setError(err.message || 'Failed to load quizzes');
+      console.log('Error loading attempts:', err);
     } finally {
       setIsLoading(false);
       setRefreshing(false);
@@ -51,17 +46,11 @@ const QuizScreen: React.FC<QuizScreenProps> = ({ navigation }) => {
     loadData();
   };
 
-  const handleStartQuiz = (quiz: Quiz) => {
-    navigation.navigate('QuizDetail', { quizId: quiz.id });
+  const handleStartQuiz = (quizId: string) => {
+    navigation.navigate('QuizDetail', { quizId });
   };
 
-  if (isLoading) {
-    return <Loading message="Memuat kuis..." />;
-  }
-
-  if (error) {
-    return <Error message={error} onRetry={loadData} />;
-  }
+  if (!user) return <Text style={styles.noDataText}>Please login first</Text>;
 
   return (
     <ScrollView
@@ -78,7 +67,7 @@ const QuizScreen: React.FC<QuizScreenProps> = ({ navigation }) => {
       <View style={styles.statsSection}>
         <Card style={styles.statCard}>
           <Text style={styles.statLabel}>Total Kuis</Text>
-          <Text style={styles.statValue}>{quizzes.length}</Text>
+          <Text style={styles.statValue}>{QUIZZES_DATA.length}</Text>
         </Card>
         <Card style={styles.statCard}>
           <Text style={styles.statLabel}>Kuis Selesai</Text>
@@ -88,46 +77,42 @@ const QuizScreen: React.FC<QuizScreenProps> = ({ navigation }) => {
 
       <View style={styles.section}>
         <Text style={styles.sectionTitle}>Daftar Kuis</Text>
-        {quizzes.length > 0 ? (
-          quizzes.map((quiz) => {
-            const attempt = attempts.find((a) => a.quiz_id === quiz.id);
-            return (
-              <Card key={quiz.id} style={styles.quizCard}>
-                <Text style={styles.quizTitle}>{quiz.title}</Text>
-                <Text style={styles.quizDescription}>{quiz.description}</Text>
-                <View style={styles.quizMetadata}>
-                  <Text style={styles.metadataItem}>
-                    ❓ {quiz.total_questions} pertanyaan
+        {QUIZZES_DATA.map((quiz) => {
+          const attempt = attempts.find((a) => a.quiz_id === quiz.id);
+          return (
+            <Card key={quiz.id} style={styles.quizCard}>
+              <Text style={styles.quizTitle}>{quiz.title}</Text>
+              <Text style={styles.quizDescription}>{quiz.description}</Text>
+              <View style={styles.quizMetadata}>
+                <Text style={styles.metadataItem}>
+                  ❓ {quiz.total_questions} pertanyaan
+                </Text>
+                <Text style={styles.metadataItem}>
+                  ⏱️ {quiz.duration_minutes} menit
+                </Text>
+              </View>
+              {attempt && (
+                <View style={styles.attemptInfo}>
+                  <Text style={[
+                    styles.score,
+                    { color: attempt.passed ? '#10b981' : '#ef4444' }
+                  ]}>
+                    Skor: {attempt.score}%
                   </Text>
-                  <Text style={styles.metadataItem}>
-                    ⏱️ {quiz.duration_minutes} menit
+                  <Text style={styles.attemptDate}>
+                    {formatDate(attempt.created_at)}
                   </Text>
                 </View>
-                {attempt && (
-                  <View style={styles.attemptInfo}>
-                    <Text style={[
-                      styles.score,
-                      { color: attempt.passed ? '#10b981' : '#ef4444' }
-                    ]}>
-                      Skor: {attempt.score}%
-                    </Text>
-                    <Text style={styles.attemptDate}>
-                      {formatDate(attempt.completed_at)}
-                    </Text>
-                  </View>
-                )}
-                <Button
-                  onPress={() => handleStartQuiz(quiz)}
-                  title={attempt ? 'Ulangi Kuis' : 'Mulai Kuis'}
-                  variant="primary"
-                  size="small"
-                />
-              </Card>
-            );
-          })
-        ) : (
-          <Text style={styles.noDataText}>Belum ada kuis</Text>
-        )}
+              )}
+              <Button
+                onPress={() => handleStartQuiz(quiz.id)}
+                title={attempt ? 'Ulangi Kuis' : 'Mulai Kuis'}
+                variant="primary"
+                size="small"
+              />
+            </Card>
+          );
+        })}
       </View>
     </ScrollView>
   );

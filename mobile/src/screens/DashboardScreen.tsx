@@ -5,14 +5,11 @@ import {
   StyleSheet,
   ScrollView,
   RefreshControl,
-  Image,
-  Dimensions,
+  TouchableOpacity,
 } from 'react-native';
 import { useAuth } from '../contexts/AuthContext';
-import { CourseService } from '../services';
-import { Course } from '../types';
-import { Card, Loading, Error, Button } from '../components';
-import { formatDuration, getDifficultyLabel, getDifficultyColor } from '../utils';
+import { AuthService, QuizService } from '../services';
+import { Card, Loading } from '../components';
 
 interface DashboardScreenProps {
   navigation: any;
@@ -20,18 +17,24 @@ interface DashboardScreenProps {
 
 const DashboardScreen: React.FC<DashboardScreenProps> = ({ navigation }) => {
   const { user } = useAuth();
-  const [courses, setCourses] = useState<Course[]>([]);
+  const [quizzes, setQuizzes] = useState<any[]>([]);
+  const [attempts, setAttempts] = useState<any[]>([]);
   const [isLoading, setIsLoading] = useState(true);
-  const [error, setError] = useState<string | null>(null);
   const [refreshing, setRefreshing] = useState(false);
 
-  const loadCourses = async () => {
+  const loadData = async () => {
+    if (!user) return;
     try {
-      setError(null);
-      const data = await CourseService.getCourses();
-      setCourses(data);
+      const quizzesData = await QuizService.getQuizzes();
+      const attemptsData = await QuizService.getUserQuizAttempts(user.id);
+      
+      // Also refresh user profile to get latest stats
+      const updatedUser = await AuthService.getCurrentUserWithProfile();
+      
+      setQuizzes(quizzesData);
+      setAttempts(attemptsData);
     } catch (err: any) {
-      setError(err.message || 'Failed to load courses');
+      console.log('Error loading dashboard data:', err);
     } finally {
       setIsLoading(false);
       setRefreshing(false);
@@ -39,20 +42,27 @@ const DashboardScreen: React.FC<DashboardScreenProps> = ({ navigation }) => {
   };
 
   useEffect(() => {
-    loadCourses();
-  }, []);
+    loadData();
+  }, [user]);
 
   const onRefresh = () => {
     setRefreshing(true);
-    loadCourses();
+    loadData();
   };
 
-  if (isLoading) {
-    return <Loading message="Memuat kursus..." />;
-  }
+  // Hitung average score dari attempts atau dari user stats
+  const avgScore = user?.average_score || (attempts.length > 0
+    ? Math.round(attempts.reduce((sum, a) => sum + (a.score || 0), 0) / attempts.length)
+    : 0);
 
-  if (error) {
-    return <Error message={error} onRetry={loadCourses} />;
+  // Count passed quizzes - use user stats jika ada
+  const passedCount = user?.total_quizzes_taken || attempts.filter(a => a.passed).length;
+  
+  // Total quizzes taken
+  const totalQuizzesTaken = user?.total_quizzes_taken || attempts.length;
+
+  if (isLoading) {
+    return <Loading message="Memuat dashboard..." />;
   }
 
   return (
@@ -62,60 +72,86 @@ const DashboardScreen: React.FC<DashboardScreenProps> = ({ navigation }) => {
         <RefreshControl refreshing={refreshing} onRefresh={onRefresh} />
       }
     >
+      {/* Header */}
       <View style={styles.header}>
         <Text style={styles.greeting}>Selamat datang! 👋</Text>
         <Text style={styles.userName}>{user?.full_name || 'Pengguna'}</Text>
         <Text style={styles.subtitle}>
-          Lanjutkan belajar dan tingkatkan kemampuan bahasa Inggris Anda
+          Platform pembelajaran bahasa Inggris interaktif untuk meningkatkan kemampuan Anda
         </Text>
       </View>
 
-      <View style={styles.statsContainer}>
-        <View style={styles.statCard}>
-          <Text style={styles.statNumber}>{courses.length}</Text>
-          <Text style={styles.statLabel}>Kursus Tersedia</Text>
-        </View>
-        <View style={styles.statCard}>
-          <Text style={styles.statNumber}>0</Text>
-          <Text style={styles.statLabel}>Selesai</Text>
+      {/* About Section */}
+      <View style={styles.section}>
+        <Text style={styles.sectionTitle}>Tentang Platform Kami</Text>
+        <Card style={styles.aboutCard}>
+          <Text style={styles.aboutTitle}>English Virtual Lab</Text>
+          <Text style={styles.aboutText}>
+            Sebuah platform pembelajaran bahasa Inggris yang dirancang khusus untuk membantu Anda menguasai bahasa Inggris melalui berbagai metode pembelajaran interaktif.
+          </Text>
+          <Text style={styles.features}>📚 Artikel - 📹 Video - 🧠 Kuis</Text>
+        </Card>
+      </View>
+
+      {/* Quick Access */}
+      <View style={styles.section}>
+        <Text style={styles.sectionTitle}>Menu Utama</Text>
+        <View style={styles.quickAccessContainer}>
+          <TouchableOpacity
+            style={styles.quickAccessBtn}
+            onPress={() => navigation.navigate('ArticlesStack')}
+          >
+            <Text style={styles.quickAccessIcon}>📄</Text>
+            <Text style={styles.quickAccessLabel}>Artikel</Text>
+          </TouchableOpacity>
+
+          <TouchableOpacity
+            style={styles.quickAccessBtn}
+            onPress={() => navigation.navigate('VideosStack')}
+          >
+            <Text style={styles.quickAccessIcon}>🎬</Text>
+            <Text style={styles.quickAccessLabel}>Video</Text>
+          </TouchableOpacity>
+
+          <TouchableOpacity
+            style={styles.quickAccessBtn}
+            onPress={() => navigation.navigate('QuizStack')}
+          >
+            <Text style={styles.quickAccessIcon}>❓</Text>
+            <Text style={styles.quickAccessLabel}>Kuis</Text>
+          </TouchableOpacity>
+
+          <TouchableOpacity
+            style={styles.quickAccessBtn}
+            onPress={() => navigation.navigate('ProfileStack')}
+          >
+            <Text style={styles.quickAccessIcon}>👤</Text>
+            <Text style={styles.quickAccessLabel}>Profil</Text>
+          </TouchableOpacity>
         </View>
       </View>
 
+      {/* Statistics */}
       <View style={styles.section}>
-        <Text style={styles.sectionTitle}>Kursus Populer</Text>
-        {courses.length > 0 ? (
-          courses.slice(0, 5).map((course) => (
-            <Card key={course.id} style={styles.courseCard}>
-              <View style={styles.courseContent}>
-                <View style={styles.courseInfo}>
-                  <Text style={styles.courseTitle} numberOfLines={2}>
-                    {course.title}
-                  </Text>
-                  <Text style={styles.courseCategory}>{course.category}</Text>
-                  <View style={styles.courseMetadata}>
-                    <Text style={styles.difficulty}>
-                      {getDifficultyLabel(course.difficulty_level)}
-                    </Text>
-                    <Text style={styles.duration}>
-                      {formatDuration(course.duration_minutes)}
-                    </Text>
-                  </View>
-                </View>
-              </View>
-              <Button
-                onPress={() =>
-                  navigation.navigate('Courses', { courseId: course.id })
-                }
-                title="Lihat Detail"
-                variant="primary"
-                size="small"
-              />
-            </Card>
-          ))
-        ) : (
-          <Text style={styles.noDataText}>Belum ada kursus</Text>
-        )}
+        <Text style={styles.sectionTitle}>Statistik Belajar Anda</Text>
+        <View style={styles.statsGrid}>
+          <Card style={styles.statCard}>
+            <Text style={styles.statValue}>{avgScore}%</Text>
+            <Text style={styles.statLabel}>Rata-rata Skor</Text>
+          </Card>
+          <Card style={styles.statCard}>
+            <Text style={styles.statValue}>{totalQuizzesTaken}</Text>
+            <Text style={styles.statLabel}>Total Kuis Dikerjakan</Text>
+          </Card>
+          <Card style={styles.statCard}>
+            <Text style={styles.statValue}>{passedCount}</Text>
+            <Text style={styles.statLabel}>Kuis Lolos</Text>
+          </Card>
+        </View>
       </View>
+
+      {/* Footer spacing */}
+      <View style={{ height: 20 }} />
     </ScrollView>
   );
 };
@@ -147,34 +183,6 @@ const styles = StyleSheet.create({
     color: '#dbeafe',
     lineHeight: 20,
   },
-  statsContainer: {
-    flexDirection: 'row',
-    paddingHorizontal: 12,
-    paddingVertical: 16,
-    gap: 12,
-  },
-  statCard: {
-    flex: 1,
-    backgroundColor: '#ffffff',
-    borderRadius: 12,
-    padding: 16,
-    alignItems: 'center',
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 1 },
-    shadowOpacity: 0.08,
-    shadowRadius: 2,
-    elevation: 2,
-  },
-  statNumber: {
-    fontSize: 28,
-    fontWeight: 'bold',
-    color: '#3b82f6',
-  },
-  statLabel: {
-    fontSize: 12,
-    color: '#6b7280',
-    marginTop: 4,
-  },
   section: {
     paddingVertical: 8,
   },
@@ -184,50 +192,80 @@ const styles = StyleSheet.create({
     color: '#1f2937',
     paddingHorizontal: 20,
     marginBottom: 12,
-    marginTop: 8,
+    marginTop: 16,
   },
-  courseCard: {
+  aboutCard: {
     marginHorizontal: 12,
     marginVertical: 8,
   },
-  courseContent: {
-    marginBottom: 12,
-  },
-  courseInfo: {
-    flex: 1,
-  },
-  courseTitle: {
-    fontSize: 16,
+  aboutTitle: {
+    fontSize: 18,
     fontWeight: '600',
-    color: '#1f2937',
-    marginBottom: 4,
-  },
-  courseCategory: {
-    fontSize: 12,
-    color: '#6b7280',
+    color: '#3b82f6',
     marginBottom: 8,
   },
-  courseMetadata: {
+  aboutText: {
+    fontSize: 14,
+    color: '#4b5563',
+    lineHeight: 20,
+    marginBottom: 12,
+  },
+  features: {
+    fontSize: 14,
+    color: '#6b7280',
+    fontWeight: '500',
+  },
+  quickAccessContainer: {
     flexDirection: 'row',
+    flexWrap: 'wrap',
+    paddingHorizontal: 12,
     gap: 12,
   },
-  difficulty: {
-    fontSize: 12,
-    fontWeight: '500',
-    color: '#3b82f6',
-    backgroundColor: '#eff6ff',
-    paddingHorizontal: 8,
-    paddingVertical: 4,
-    borderRadius: 4,
+  quickAccessBtn: {
+    width: '48%',
+    backgroundColor: '#ffffff',
+    borderRadius: 12,
+    padding: 16,
+    alignItems: 'center',
+    justifyContent: 'center',
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 1 },
+    shadowOpacity: 0.08,
+    shadowRadius: 2,
+    elevation: 2,
+    borderColor: '#e5e7eb',
+    borderWidth: 1,
   },
-  duration: {
+  quickAccessIcon: {
+    fontSize: 36,
+    marginBottom: 8,
+  },
+  quickAccessLabel: {
+    fontSize: 13,
+    fontWeight: '600',
+    color: '#1f2937',
+    textAlign: 'center',
+  },
+  statsGrid: {
+    paddingHorizontal: 12,
+    gap: 12,
+  },
+  statCard: {
+    paddingHorizontal: 16,
+    paddingVertical: 12,
+    alignItems: 'center',
+    marginBottom: 8,
+  },
+  statValue: {
+    fontSize: 24,
+    fontWeight: 'bold',
+    color: '#3b82f6',
+    marginBottom: 4,
+  },
+  statLabel: {
     fontSize: 12,
     color: '#6b7280',
-  },
-  noDataText: {
     textAlign: 'center',
-    color: '#9ca3af',
-    marginVertical: 20,
   },
 });
 

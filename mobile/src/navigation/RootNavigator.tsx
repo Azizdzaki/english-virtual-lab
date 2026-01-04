@@ -1,4 +1,5 @@
 import React from 'react';
+import { Text } from 'react-native'; // Tambahkan import Text
 import { NavigationContainer } from '@react-navigation/native';
 import { createNativeStackNavigator } from '@react-navigation/native-stack';
 import { createBottomTabNavigator } from '@react-navigation/bottom-tabs';
@@ -9,61 +10,88 @@ import {
   ArticlesScreen,
   VideosScreen,
   QuizScreen,
+  QuizDetailScreen,
   ProfileScreen,
   SplashScreen,
 } from '../screens';
 import { Loading } from '../components';
 
-const Stack = createNativeStackNavigator();
-const Tab = createBottomTabNavigator();
+// 1. Definisikan Tipe Parameter Navigasi (PENTING untuk TypeScript)
+export type RootStackParamList = {
+  Splash: undefined;
+  Auth: undefined;
+  App: undefined;
+};
+
+export type AuthStackParamList = {
+  AuthScreen: undefined;
+};
+
+export type AppTabParamList = {
+  DashboardStack: undefined;
+  ArticlesStack: undefined;
+  VideosStack: undefined;
+  QuizStack: undefined;
+  ProfileStack: undefined;
+};
+
+// 2. Buat Navigator dengan Generic Type
+const Stack = createNativeStackNavigator<RootStackParamList>();
+const Tab = createBottomTabNavigator<AppTabParamList>();
+const AuthStackNav = createNativeStackNavigator<AuthStackParamList>();
+
+// Stack untuk setiap Tab (bisa dibuat generic juga jika perlu, tapi ini cukup untuk menghilangkan error basic)
+const DashboardStackNav = createNativeStackNavigator();
+const ArticlesStackNav = createNativeStackNavigator();
+const VideosStackNav = createNativeStackNavigator();
+const QuizStackNav = createNativeStackNavigator();
+const ProfileStackNav = createNativeStackNavigator();
 
 const screenOptions = {
   headerShown: false,
 };
 
-// Auth Stack
+// --- STACK COMPONENTS ---
+
 const AuthStack = () => (
-  <Stack.Navigator screenOptions={screenOptions}>
-    <Stack.Screen name="AuthScreen" component={AuthScreen} />
-  </Stack.Navigator>
+  <AuthStackNav.Navigator screenOptions={screenOptions}>
+    <AuthStackNav.Screen name="AuthScreen" component={AuthScreen} />
+  </AuthStackNav.Navigator>
 );
 
-// Dashboard Stack
 const DashboardStack = () => (
-  <Stack.Navigator screenOptions={screenOptions}>
-    <Stack.Screen name="Dashboard" component={DashboardScreen} />
-  </Stack.Navigator>
+  <DashboardStackNav.Navigator screenOptions={screenOptions}>
+    <DashboardStackNav.Screen name="Dashboard" component={DashboardScreen} />
+  </DashboardStackNav.Navigator>
 );
 
-// Articles Stack
 const ArticlesStack = () => (
-  <Stack.Navigator screenOptions={screenOptions}>
-    <Stack.Screen name="ArticlesList" component={ArticlesScreen} />
-  </Stack.Navigator>
+  <ArticlesStackNav.Navigator screenOptions={screenOptions}>
+    <ArticlesStackNav.Screen name="ArticlesList" component={ArticlesScreen} />
+  </ArticlesStackNav.Navigator>
 );
 
-// Videos Stack
 const VideosStack = () => (
-  <Stack.Navigator screenOptions={screenOptions}>
-    <Stack.Screen name="VideosList" component={VideosScreen} />
-  </Stack.Navigator>
+  <VideosStackNav.Navigator screenOptions={screenOptions}>
+    <VideosStackNav.Screen name="VideosList" component={VideosScreen} />
+  </VideosStackNav.Navigator>
 );
 
-// Quiz Stack
 const QuizStack = () => (
-  <Stack.Navigator screenOptions={screenOptions}>
-    <Stack.Screen name="QuizList" component={QuizScreen} />
-  </Stack.Navigator>
+  <QuizStackNav.Navigator screenOptions={screenOptions}>
+    <QuizStackNav.Screen name="QuizList" component={QuizScreen} />
+    <QuizStackNav.Screen name="QuizDetail" component={QuizDetailScreen} />
+  </QuizStackNav.Navigator>
 );
 
-// Profile Stack
 const ProfileStack = () => (
-  <Stack.Navigator screenOptions={screenOptions}>
-    <Stack.Screen name="ProfileScreen" component={ProfileScreen} />
-  </Stack.Navigator>
+  <ProfileStackNav.Navigator screenOptions={screenOptions}>
+    <ProfileStackNav.Screen name="ProfileScreen" component={ProfileScreen} />
+  </ProfileStackNav.Navigator>
 );
 
-// Main App Stack (with bottom tabs)
+// --- MAIN APP TABS ---
+
 const AppStack = () => (
   <Tab.Navigator
     screenOptions={{
@@ -89,7 +117,8 @@ const AppStack = () => (
       component={DashboardStack}
       options={{
         tabBarLabel: 'Dashboard',
-        tabBarIcon: ({ color }) => <Text style={{ fontSize: 24 }}>🏠</Text>,
+        // PERBAIKAN: Gunakan prop 'color' agar ikon berubah warna saat aktif
+        tabBarIcon: ({ color }) => <Text style={{ fontSize: 24, color }}>🏠</Text>,
       }}
     />
     <Tab.Screen
@@ -97,7 +126,7 @@ const AppStack = () => (
       component={ArticlesStack}
       options={{
         tabBarLabel: 'Artikel',
-        tabBarIcon: ({ color }) => <Text style={{ fontSize: 24 }}>📄</Text>,
+        tabBarIcon: ({ color }) => <Text style={{ fontSize: 24, color }}>📄</Text>,
       }}
     />
     <Tab.Screen
@@ -105,7 +134,7 @@ const AppStack = () => (
       component={VideosStack}
       options={{
         tabBarLabel: 'Video',
-        tabBarIcon: ({ color }) => <Text style={{ fontSize: 24 }}>🎬</Text>,
+        tabBarIcon: ({ color }) => <Text style={{ fontSize: 24, color }}>🎬</Text>,
       }}
     />
     <Tab.Screen
@@ -113,7 +142,7 @@ const AppStack = () => (
       component={QuizStack}
       options={{
         tabBarLabel: 'Kuis',
-        tabBarIcon: ({ color }) => <Text style={{ fontSize: 24 }}>❓</Text>,
+        tabBarIcon: ({ color }) => <Text style={{ fontSize: 24, color }}>❓</Text>,
       }}
     />
     <Tab.Screen
@@ -121,18 +150,19 @@ const AppStack = () => (
       component={ProfileStack}
       options={{
         tabBarLabel: 'Profil',
-        tabBarIcon: ({ color }) => <Text style={{ fontSize: 24 }}>👤</Text>,
+        tabBarIcon: ({ color }) => <Text style={{ fontSize: 24, color }}>👤</Text>,
       }}
     />
   </Tab.Navigator>
 );
 
-// Root Navigator
+// --- ROOT NAVIGATOR ---
+
 const RootNavigator = () => {
   const { isSignedIn, isLoading } = useAuth();
 
   if (isLoading) {
-    return <Loading />;
+    return <Loading message="Memuat aplikasi..." />;
   }
 
   return (
@@ -141,10 +171,10 @@ const RootNavigator = () => {
         {isSignedIn ? (
           <Stack.Screen name="App" component={AppStack} />
         ) : (
-          <>
+          <Stack.Group screenOptions={screenOptions}>
             <Stack.Screen name="Splash" component={SplashScreen} />
             <Stack.Screen name="Auth" component={AuthStack} />
-          </>
+          </Stack.Group>
         )}
       </Stack.Navigator>
     </NavigationContainer>

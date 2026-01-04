@@ -74,7 +74,8 @@ export const calculateProgressPercentage = (current: number, total: number): num
   return Math.round((current / total) * 100);
 };
 
-export const getDifficultyColor = (difficulty: string): string => {
+export const getDifficultyColor = (difficulty: string | undefined | null): string => {
+  if (!difficulty) return '#6b7280';
   switch (difficulty.toLowerCase()) {
     case 'beginner':
       return '#10b981';
@@ -87,7 +88,8 @@ export const getDifficultyColor = (difficulty: string): string => {
   }
 };
 
-export const getDifficultyLabel = (difficulty: string): string => {
+export const getDifficultyLabel = (difficulty: string | undefined | null): string => {
+  if (!difficulty) return 'Tidak ada tingkat';
   switch (difficulty.toLowerCase()) {
     case 'beginner':
       return 'Pemula';

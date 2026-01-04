@@ -1,9 +1,19 @@
 // User Types
 export interface User {
   id: string;
+  auth_id: string;
   email: string;
   full_name: string;
   avatar_url?: string;
+  bio?: string;
+  phone_number?: string;
+  country?: string;
+  learning_level: 'beginner' | 'intermediate' | 'advanced';
+  total_quizzes_taken: number;
+  total_score: number;
+  average_score: number;
+  is_active: boolean;
+  last_login?: string;
   created_at: string;
   updated_at: string;
 }
@@ -47,8 +57,10 @@ export interface Article {
   content: string;
   author: string;
   category: string;
+  url?: string; // Link ke artikel lengkap
   thumbnail_url?: string;
   published_at: string;
+  created_at: string;
   updated_at: string;
 }
 
@@ -62,6 +74,7 @@ export interface Video {
   duration_seconds: number;
   category: string;
   published_at: string;
+  created_at: string;
 }
 
 // Quiz Types
@@ -95,7 +108,7 @@ export interface QuizAttempt {
   total_questions: number;
   passed: boolean;
   started_at: string;
-  completed_at: string;
+  created_at: string;
 }
 
 // Progress Types

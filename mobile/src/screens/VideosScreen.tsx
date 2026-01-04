@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState } from 'react';
 import {
   View,
   Text,
@@ -7,57 +7,74 @@ import {
   RefreshControl,
   Linking,
   TouchableOpacity,
+  Image,
 } from 'react-native';
-import { VideoService } from '../services';
 import { Video } from '../types';
-import { Card, Loading, Error } from '../components';
+import { Card } from '../components';
 import { formatDate, formatDuration } from '../utils';
 
 interface VideosScreenProps {
   navigation: any;
 }
 
+// Hardcoded videos data
+const VIDEOS_DATA: Video[] = [
+  {
+    id: '1',
+    title: 'English Alphabet',
+    description: 'Learn the English alphabet pronunciation',
+    video_url: 'https://www.youtube.com/watch?v=ZX3w8iYmNEw',
+    thumbnail_url: 'https://via.placeholder.com/400x200?text=Alphabet',
+    duration_seconds: 300,
+    category: 'Basics',
+    published_at: '2025-12-30',
+    created_at: '2025-12-30',
+  },
+  {
+    id: '2',
+    title: 'Grammar Lessons',
+    description: 'Complete grammar lessons for beginners',
+    video_url: 'https://www.youtube.com/watch?v=qVg2EXCnLAE',
+    thumbnail_url: 'https://via.placeholder.com/400x200?text=Grammar',
+    duration_seconds: 1200,
+    category: 'Grammar',
+    published_at: '2025-12-30',
+    created_at: '2025-12-30',
+  },
+];
+
 const VideosScreen: React.FC<VideosScreenProps> = ({ navigation }) => {
-  const [videos, setVideos] = useState<Video[]>([]);
-  const [isLoading, setIsLoading] = useState(true);
-  const [error, setError] = useState<string | null>(null);
   const [refreshing, setRefreshing] = useState(false);
-
-  const loadVideos = async () => {
-    try {
-      setError(null);
-      const data = await VideoService.getVideos();
-      setVideos(data);
-    } catch (err: any) {
-      setError(err.message || 'Failed to load videos');
-    } finally {
-      setIsLoading(false);
-      setRefreshing(false);
-    }
-  };
-
-  useEffect(() => {
-    loadVideos();
-  }, []);
 
   const onRefresh = () => {
     setRefreshing(true);
-    loadVideos();
+    setTimeout(() => setRefreshing(false), 500);
   };
 
-  const handlePlayVideo = (url: string) => {
-    Linking.openURL(url).catch(() => {
+  const handlePlayVideo = (url: string | undefined) => {
+    if (!url || typeof url !== 'string') {
+      alert('Link video tidak tersedia');
+      return;
+    }
+
+    let videoUrl = url.trim();
+    
+    if (videoUrl.includes('youtube.com')) {
+      const videoId = videoUrl.split('v=')[1]?.split('&')[0];
+      if (videoId) {
+        videoUrl = `https://www.youtube.com/watch?v=${videoId}`;
+      }
+    } else if (videoUrl.includes('youtu.be')) {
+      const videoId = videoUrl.split('/')[3]?.split('?')[0];
+      if (videoId) {
+        videoUrl = `https://www.youtube.com/watch?v=${videoId}`;
+      }
+    }
+    
+    Linking.openURL(videoUrl).catch(() => {
       alert('Tidak bisa membuka video');
     });
   };
-
-  if (isLoading) {
-    return <Loading message="Memuat video..." />;
-  }
-
-  if (error) {
-    return <Error message={error} onRetry={loadVideos} />;
-  }
 
   return (
     <ScrollView
@@ -74,30 +91,40 @@ const VideosScreen: React.FC<VideosScreenProps> = ({ navigation }) => {
       </View>
 
       <View style={styles.content}>
-        {videos.length > 0 ? (
-          videos.map((video) => (
-            <Card key={video.id} style={styles.videoCard}>
+        {VIDEOS_DATA.map((video) => (
+          <Card key={video.id} style={styles.videoCard}>
+            {video.video_url ? (
               <TouchableOpacity onPress={() => handlePlayVideo(video.video_url)}>
                 <View style={styles.thumbnail}>
-                  <Text style={styles.playIcon}>▶️</Text>
+                  {video.thumbnail_url ? (
+                    <Image
+                      source={{ uri: video.thumbnail_url }}
+                      style={styles.thumbnailImage}
+                    />
+                  ) : null}
+                  <View style={styles.playIconOverlay}>
+                    <Text style={styles.playIcon}>▶️</Text>
+                  </View>
                 </View>
               </TouchableOpacity>
-              <Text style={styles.videoTitle}>{video.title}</Text>
-              <Text style={styles.description} numberOfLines={2}>
-                {video.description}
-              </Text>
-              <View style={styles.metadata}>
-                <Text style={styles.duration}>
-                  ⏱️ {formatDuration(Math.ceil(video.duration_seconds / 60))}
-                </Text>
-                <Text style={styles.category}>{video.category}</Text>
+            ) : (
+              <View style={styles.thumbnail}>
+                <Text style={styles.noPlayIcon}>🔒</Text>
               </View>
-              <Text style={styles.date}>{formatDate(video.published_at)}</Text>
-            </Card>
-          ))
-        ) : (
-          <Text style={styles.noDataText}>Belum ada video</Text>
-        )}
+            )}
+            <Text style={styles.videoTitle}>{video.title}</Text>
+            <Text style={styles.description} numberOfLines={3}>
+              {video.description}
+            </Text>
+            <View style={styles.metadata}>
+              <Text style={styles.duration}>
+                ⏱️ {formatDuration(Math.ceil(video.duration_seconds / 60))}
+              </Text>
+              <Text style={styles.category}>{video.category}</Text>
+            </View>
+            <Text style={styles.date}>{formatDate(video.created_at)}</Text>
+          </Card>
+        ))}
       </View>
     </ScrollView>
   );
@@ -138,8 +165,22 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     alignItems: 'center',
     marginBottom: 12,
+    overflow: 'hidden',
+  },
+  thumbnailImage: {
+    width: '100%',
+    height: '100%',
+    position: 'absolute',
+  },
+  playIconOverlay: {
+    justifyContent: 'center',
+    alignItems: 'center',
+    zIndex: 1,
   },
   playIcon: {
+    fontSize: 48,
+  },
+  noPlayIcon: {
     fontSize: 48,
   },
   videoTitle: {

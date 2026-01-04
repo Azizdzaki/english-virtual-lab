@@ -10,6 +10,7 @@ interface AuthContextType {
   signIn: (email: string, password: string) => Promise<void>;
   signOut: () => Promise<void>;
   resetPassword: (email: string) => Promise<void>;
+  updateProfile: (updates: { full_name?: string; avatar_url?: string }) => Promise<void>;
 }
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
@@ -23,16 +24,9 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   useEffect(() => {
     const checkSession = async () => {
       try {
-        const currentUser = await AuthService.getCurrentUser();
+        const currentUser = await AuthService.getCurrentUserWithProfile();
         if (currentUser) {
-          setUser({
-            id: currentUser.id,
-            email: currentUser.email || '',
-            full_name: currentUser.user_metadata?.full_name || '',
-            avatar_url: currentUser.user_metadata?.avatar_url,
-            created_at: currentUser.created_at || new Date().toISOString(),
-            updated_at: currentUser.updated_at || new Date().toISOString(),
-          });
+          setUser(currentUser);
           setIsSignedIn(true);
         }
       } catch (error) {
@@ -47,15 +41,19 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     // Subscribe to auth changes
     const { data: subscription } = AuthService.onAuthStateChange((event, session) => {
       if (session?.user) {
-        setUser({
-          id: session.user.id,
-          email: session.user.email || '',
-          full_name: session.user.user_metadata?.full_name || '',
-          avatar_url: session.user.user_metadata?.avatar_url,
-          created_at: session.user.created_at || new Date().toISOString(),
-          updated_at: session.user.updated_at || new Date().toISOString(),
-        });
-        setIsSignedIn(true);
+        // Fetch full profile on auth change
+        AuthService.getCurrentUserWithProfile()
+          .then(userProfile => {
+            if (userProfile) {
+              setUser(userProfile);
+              setIsSignedIn(true);
+            }
+          })
+          .catch(error => {
+            console.error('Error fetching user profile:', error);
+            setUser(null);
+            setIsSignedIn(false);
+          });
       } else {
         setUser(null);
         setIsSignedIn(false);
@@ -115,8 +113,28 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     }
   };
 
+  const updateProfile = async (updates: { full_name?: string; avatar_url?: string }) => {
+    try {
+      setIsLoading(true);
+      await AuthService.updateProfile(updates);
+      // Update local user state
+      if (user) {
+        setUser({
+          ...user,
+          full_name: updates.full_name || user.full_name,
+          avatar_url: updates.avatar_url || user.avatar_url,
+          updated_at: new Date().toISOString(),
+        });
+      }
+    } catch (error) {
+      throw error;
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
   return (
-    <AuthContext.Provider value={{ user, isLoading, isSignedIn, signUp, signIn, signOut, resetPassword }}>
+    <AuthContext.Provider value={{ user, isLoading, isSignedIn, signUp, signIn, signOut, resetPassword, updateProfile }}>
       {children}
     </AuthContext.Provider>
   );

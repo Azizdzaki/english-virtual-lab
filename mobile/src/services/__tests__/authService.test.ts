@@ -1,5 +1,5 @@
 // Test file for AuthService
-import { AuthService } from '../../src/services';
+import { AuthService } from '../authService'; 
 
 describe('AuthService', () => {
   describe('Email Validation', () => {

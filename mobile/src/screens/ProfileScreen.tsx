@@ -17,9 +17,10 @@ interface ProfileScreenProps {
 }
 
 const ProfileScreen: React.FC<ProfileScreenProps> = ({ navigation }) => {
-  const { user, signOut } = useAuth();
+  const { user, signOut, updateProfile } = useAuth();
   const [isEditing, setIsEditing] = useState(false);
   const [fullName, setFullName] = useState(user?.full_name || '');
+  const [isSaving, setIsSaving] = useState(false);
 
   const handleLogout = async () => {
     Alert.alert('Logout', 'Apakah Anda yakin ingin logout?', [
@@ -37,10 +38,24 @@ const ProfileScreen: React.FC<ProfileScreenProps> = ({ navigation }) => {
     ]);
   };
 
-  const handleSaveProfile = () => {
-    // TODO: Implement update profile
-    Alert.alert('Berhasil', 'Profil berhasil diperbarui');
-    setIsEditing(false);
+  const handleSaveProfile = async () => {
+    if (!fullName.trim()) {
+      Alert.alert('Error', 'Nama tidak boleh kosong');
+      return;
+    }
+
+    setIsSaving(true);
+    try {
+      if (updateProfile) {
+        await updateProfile({ full_name: fullName });
+      }
+      Alert.alert('Berhasil', 'Profil berhasil diperbarui');
+      setIsEditing(false);
+    } catch (error: any) {
+      Alert.alert('Error', error.message || 'Gagal update profil');
+    } finally {
+      setIsSaving(false);
+    }
   };
 
   if (!user) {
@@ -65,7 +80,7 @@ const ProfileScreen: React.FC<ProfileScreenProps> = ({ navigation }) => {
 
       <View style={styles.section}>
         <Text style={styles.sectionTitle}>Informasi Akun</Text>
-        <Card>
+        <Card style={styles.cardContent}>
           <View style={styles.infoRow}>
             <Text style={styles.infoLabel}>Email</Text>
             <Text style={styles.infoValue}>{user.email}</Text>
@@ -73,15 +88,7 @@ const ProfileScreen: React.FC<ProfileScreenProps> = ({ navigation }) => {
           <View style={styles.divider} />
           <View style={styles.infoRow}>
             <Text style={styles.infoLabel}>Nama Lengkap</Text>
-            {isEditing ? (
-              <Input
-                value={fullName}
-                onChangeText={setFullName}
-                placeholder="Masukkan nama lengkap"
-              />
-            ) : (
-              <Text style={styles.infoValue}>{user.full_name}</Text>
-            )}
+            <Text style={styles.infoValue}>{user.full_name || '-'}</Text>
           </View>
           <View style={styles.divider} />
           <View style={styles.infoRow}>
@@ -95,27 +102,55 @@ const ProfileScreen: React.FC<ProfileScreenProps> = ({ navigation }) => {
 
       <View style={styles.section}>
         <Text style={styles.sectionTitle}>Pengaturan</Text>
-        <Card>
+        <Card style={styles.cardContent}>
           <TouchableOpacity
             style={styles.settingItem}
             onPress={() => setIsEditing(!isEditing)}
           >
-            <Text style={styles.settingLabel}>
-              {isEditing ? 'Batal Edit Profil' : 'Edit Profil'}
-            </Text>
-            <Text style={styles.settingIcon}>{isEditing ? '✕' : '✎'}</Text>
+            <Text style={styles.settingLabel}>Edit Profil</Text>
+            <Text style={styles.settingIcon}>✎</Text>
           </TouchableOpacity>
         </Card>
       </View>
 
       {isEditing && (
         <View style={styles.section}>
-          <Button
-            onPress={handleSaveProfile}
-            title="Simpan Perubahan"
-            variant="success"
-            size="large"
-          />
+          <Text style={styles.sectionTitle}>Edit Informasi</Text>
+          <Card style={styles.cardContent}>
+            <View style={styles.editRow}>
+              <Text style={styles.infoLabel}>Nama Lengkap</Text>
+            </View>
+            <Input
+              value={fullName}
+              onChangeText={setFullName}
+              placeholder="Masukkan nama lengkap"
+            />
+            <View style={styles.editButtonRow}>
+              <TouchableOpacity
+                style={[styles.editButton, styles.cancelButton]}
+                disabled={isSaving}
+                onPress={() => {
+                  setFullName(user?.full_name || '');
+                  setIsEditing(false);
+                }}
+              >
+                <Text style={styles.cancelButtonText}>Batal</Text>
+              </TouchableOpacity>
+              <TouchableOpacity
+                style={[
+                  styles.editButton,
+                  styles.saveButton,
+                  isSaving && styles.saveButtonDisabled,
+                ]}
+                disabled={isSaving}
+                onPress={handleSaveProfile}
+              >
+                <Text style={styles.saveButtonText}>
+                  {isSaving ? 'Menyimpan...' : 'Simpan'}
+                </Text>
+              </TouchableOpacity>
+            </View>
+          </Card>
         </View>
       )}
 
@@ -153,7 +188,7 @@ const styles = StyleSheet.create({
     alignItems: 'center',
   },
   avatarContainer: {
-    marginBottom: 16,
+    marginBottom: 12,
   },
   avatar: {
     width: 80,
@@ -169,14 +204,16 @@ const styles = StyleSheet.create({
     color: '#0369a1',
   },
   userName: {
-    fontSize: 24,
+    fontSize: 20,
     fontWeight: 'bold',
     color: '#ffffff',
     marginBottom: 4,
+    textAlign: 'center',
   },
   email: {
     fontSize: 14,
     color: '#dbeafe',
+    textAlign: 'center',
   },
   section: {
     paddingHorizontal: 12,
@@ -189,11 +226,19 @@ const styles = StyleSheet.create({
     marginBottom: 12,
     paddingHorizontal: 8,
   },
+  cardContent: {
+    paddingHorizontal: 16,
+    paddingVertical: 12,
+  },
   infoRow: {
     paddingVertical: 12,
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
+  },
+  editRow: {
+    paddingVertical: 8,
+    marginBottom: 8,
   },
   infoLabel: {
     fontSize: 14,
@@ -225,6 +270,37 @@ const styles = StyleSheet.create({
   settingIcon: {
     fontSize: 18,
     color: '#3b82f6',
+  },
+  editButtonRow: {
+    flexDirection: 'row',
+    gap: 12,
+    marginTop: 16,
+  },
+  editButton: {
+    flex: 1,
+    paddingVertical: 10,
+    borderRadius: 8,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  cancelButton: {
+    backgroundColor: '#e5e7eb',
+  },
+  cancelButtonText: {
+    fontSize: 14,
+    fontWeight: '600',
+    color: '#6b7280',
+  },
+  saveButton: {
+    backgroundColor: '#3b82f6',
+  },
+  saveButtonDisabled: {
+    backgroundColor: '#93c5fd',
+  },
+  saveButtonText: {
+    fontSize: 14,
+    fontWeight: '600',
+    color: '#ffffff',
   },
   footer: {
     alignItems: 'center',
