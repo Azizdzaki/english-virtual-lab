@@ -58,6 +58,10 @@ export class QuizService {
   ) {
     try {
       const passed = score >= 60; // 60% passing score
+
+      // Retrieve the quiz title
+      const quiz = QUIZZES_DATA.find(q => q.id === quizId);
+      const quizTitle = quiz ? quiz.title : 'Unknown Quiz';
       
       // Debug log
       console.log('Submitting quiz attempt:', {
@@ -74,6 +78,7 @@ export class QuizService {
           {
             user_id: userId,
             quiz_id: quizId,
+            quiz_title: quizTitle,
             score: Math.round(score),
             total_questions: totalQuestions,
             passed,
