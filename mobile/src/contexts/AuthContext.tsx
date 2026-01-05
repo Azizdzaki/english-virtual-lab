@@ -1,6 +1,6 @@
-import React, { createContext, useContext, useEffect, useState } from 'react';
-import { AuthService } from '../services';
-import { User } from '../types';
+import React, { createContext, useContext, useEffect, useState } from "react";
+import { AuthService } from "../services";
+import { User } from "../types";
 
 interface AuthContextType {
   user: User | null;
@@ -10,12 +10,18 @@ interface AuthContextType {
   signIn: (email: string, password: string) => Promise<void>;
   signOut: () => Promise<void>;
   resetPassword: (email: string) => Promise<void>;
-  updateProfile: (updates: { full_name?: string; avatar_url?: string }) => Promise<void>;
+  updateProfile: (updates: {
+    full_name?: string;
+    avatar_url?: string;
+  }) => Promise<void>;
+  refreshUser: () => Promise<void>;
 }
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
 
-export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
+export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({
+  children,
+}) => {
   const [user, setUser] = useState<User | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [isSignedIn, setIsSignedIn] = useState(false);
@@ -30,7 +36,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
           setIsSignedIn(true);
         }
       } catch (error) {
-        console.error('Error checking session:', error);
+        console.error("Error checking session:", error);
       } finally {
         setIsLoading(false);
       }
@@ -39,26 +45,28 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     checkSession();
 
     // Subscribe to auth changes
-    const { data: subscription } = AuthService.onAuthStateChange((event, session) => {
-      if (session?.user) {
-        // Fetch full profile on auth change
-        AuthService.getCurrentUserWithProfile()
-          .then(userProfile => {
-            if (userProfile) {
-              setUser(userProfile);
-              setIsSignedIn(true);
-            }
-          })
-          .catch(error => {
-            console.error('Error fetching user profile:', error);
-            setUser(null);
-            setIsSignedIn(false);
-          });
-      } else {
-        setUser(null);
-        setIsSignedIn(false);
+    const { data: subscription } = AuthService.onAuthStateChange(
+      (event, session) => {
+        if (session?.user) {
+          // Fetch full profile on auth change
+          AuthService.getCurrentUserWithProfile()
+            .then((userProfile) => {
+              if (userProfile) {
+                setUser(userProfile);
+                setIsSignedIn(true);
+              }
+            })
+            .catch((error) => {
+              console.error("Error fetching user profile:", error);
+              setUser(null);
+              setIsSignedIn(false);
+            });
+        } else {
+          setUser(null);
+          setIsSignedIn(false);
+        }
       }
-    });
+    );
 
     return () => {
       if (subscription?.subscription) {
@@ -113,7 +121,10 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     }
   };
 
-  const updateProfile = async (updates: { full_name?: string; avatar_url?: string }) => {
+  const updateProfile = async (updates: {
+    full_name?: string;
+    avatar_url?: string;
+  }) => {
     try {
       setIsLoading(true);
       await AuthService.updateProfile(updates);
@@ -133,8 +144,32 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     }
   };
 
+  const refreshUser = async () => {
+    try {
+      const updatedUser = await AuthService.getCurrentUserWithProfile();
+      if (updatedUser) {
+        setUser(updatedUser);
+      }
+    } catch (error) {
+      console.error("Error refreshing user:", error);
+    }
+  };
+
+  // Add refreshUser to the context value
   return (
-    <AuthContext.Provider value={{ user, isLoading, isSignedIn, signUp, signIn, signOut, resetPassword, updateProfile }}>
+    <AuthContext.Provider
+      value={{
+        user,
+        isLoading,
+        isSignedIn,
+        signUp,
+        signIn,
+        signOut,
+        resetPassword,
+        updateProfile,
+        refreshUser,
+      }}
+    >
       {children}
     </AuthContext.Provider>
   );
@@ -143,7 +178,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
 export const useAuth = () => {
   const context = useContext(AuthContext);
   if (context === undefined) {
-    throw new Error('useAuth must be used within AuthProvider');
+    throw new Error("useAuth must be used within AuthProvider");
   }
   return context;
 };
