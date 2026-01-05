@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useCallback } from 'react';
 import {
   View,
   Text,
@@ -7,61 +7,79 @@ import {
   RefreshControl,
   TouchableOpacity,
 } from 'react-native';
+import { useFocusEffect } from '@react-navigation/native';
 import { useAuth } from '../contexts/AuthContext';
 import { AuthService, QuizService } from '../services';
 import { Card, Loading } from '../components';
+import type { QuizAttempt } from '../types';
 
 interface DashboardScreenProps {
   navigation: any;
 }
 
 const DashboardScreen: React.FC<DashboardScreenProps> = ({ navigation }) => {
-  const { user } = useAuth();
-  const [quizzes, setQuizzes] = useState<any[]>([]);
-  const [attempts, setAttempts] = useState<any[]>([]);
+  const { user, refreshUser } = useAuth();
+  const [stats, setStats] = useState({
+    avgScore: 0,
+    passedCount: 0,
+    totalQuizzes: 0
+  });
   const [isLoading, setIsLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
 
   const loadData = async () => {
     if (!user) return;
     try {
-      const quizzesData = await QuizService.getQuizzes();
-      const attemptsData = await QuizService.getUserQuizAttempts(user.id);
+      setIsLoading(true);
       
-      // Also refresh user profile to get latest stats
-      const updatedUser = await AuthService.getCurrentUserWithProfile();
+      // 1. Refresh user context first (this fetches latest profile from DB)
+      await refreshUser();
       
-      setQuizzes(quizzesData);
-      setAttempts(attemptsData);
+      // 2. Fetch quiz attempts to calculate fresh stats
+      const attempts = await QuizService.getUserQuizAttempts(user.id);
+      
+      // 3. Calculate statistics from attempts
+      let totalScore = 0;
+      let passedCount = 0;
+      
+      attempts.forEach((attempt: QuizAttempt) => {
+        totalScore += attempt.score;
+        if (attempt.passed) {
+          passedCount++;
+        }
+      });
+      
+      const avgScore = attempts.length > 0 
+        ? Math.round(totalScore / attempts.length) 
+        : 0;
+      
+      // 4. Update stats state
+      setStats({
+        avgScore,
+        passedCount,
+        totalQuizzes: attempts.length
+      });
+
     } catch (err: any) {
-      console.log('Error loading dashboard data:', err);
+      console.log('Error loading dashboard data:', err.message);
     } finally {
       setIsLoading(false);
       setRefreshing(false);
     }
   };
 
-  useEffect(() => {
-    loadData();
-  }, [user]);
+  useFocusEffect(
+    useCallback(() => {
+      loadData();
+    }, [user?.id])
+  );
 
   const onRefresh = () => {
     setRefreshing(true);
     loadData();
   };
 
-  // 1. Average Score
-  const avgScore = user?.average_score ?? (attempts.length > 0
-    ? Math.round(attempts.reduce((sum, a) => sum + (a.score || 0), 0) / attempts.length)
-    : 0);
-
-  // 2. Passed Quizzes
-  const passedCount = user?.total_quizzes_taken ?? attempts.filter(a => a.passed).length;
-  
-  // 3. Total Quizzes
-  const totalQuizzesTaken = user?.total_quizzes_taken ?? attempts.length;
-
-  if (isLoading) {
+  if (isLoading && !refreshing) {
     return <Loading message="Memuat dashboard..." />;
   }
 
@@ -81,15 +99,23 @@ const DashboardScreen: React.FC<DashboardScreenProps> = ({ navigation }) => {
         </Text>
       </View>
 
-      {/* About Section */}
+      {/* Statistics Section */}
       <View style={styles.section}>
-        <Text style={styles.sectionTitle}>Tentang Platform Kami</Text>
-        <Card style={styles.aboutCard}>
-          <Text style={styles.aboutTitle}>English Virtual Lab</Text>
-          <Text style={styles.aboutText}>
-            Sebuah platform pembelajaran bahasa Inggris yang dirancang khusus untuk membantu Anda menguasai bahasa Inggris melalui berbagai metode pembelajaran interaktif yaitu artikel, video, dan kuis.
-          </Text>
-        </Card>
+        <Text style={styles.sectionTitle}>Statistik Belajar</Text>
+        <View style={styles.statsGrid}>
+          <Card style={styles.statCard}>
+            <Text style={styles.statValue}>{stats.avgScore}%</Text>
+            <Text style={styles.statLabel}>Rata-rata Skor</Text>
+          </Card>
+          <Card style={styles.statCard}>
+            <Text style={styles.statValue}>{stats.totalQuizzes}</Text>
+            <Text style={styles.statLabel}>Total Kuis</Text>
+          </Card>
+          <Card style={styles.statCard}>
+            <Text style={styles.statValue}>{stats.passedCount}</Text>
+            <Text style={styles.statLabel}>Kuis Lolos</Text>
+          </Card>
+        </View>
       </View>
 
       {/* Quick Access */}
@@ -130,26 +156,17 @@ const DashboardScreen: React.FC<DashboardScreenProps> = ({ navigation }) => {
         </View>
       </View>
 
-      {/* Statistics */}
+      {/* About Section */}
       <View style={styles.section}>
-        <Text style={styles.sectionTitle}>Statistik Belajar</Text>
-        <View style={styles.statsGrid}>
-          <Card style={styles.statCard}>
-            <Text style={styles.statValue}>{avgScore}%</Text>
-            <Text style={styles.statLabel}>Rata-rata Skor</Text>
-          </Card>
-          <Card style={styles.statCard}>
-            <Text style={styles.statValue}>{totalQuizzesTaken}</Text>
-            <Text style={styles.statLabel}>Total Kuis Dikerjakan</Text>
-          </Card>
-          <Card style={styles.statCard}>
-            <Text style={styles.statValue}>{passedCount}</Text>
-            <Text style={styles.statLabel}>Kuis Lolos</Text>
-          </Card>
-        </View>
+        <Text style={styles.sectionTitle}>Tentang Platform Kami</Text>
+        <Card style={styles.aboutCard}>
+          <Text style={styles.aboutTitle}>English Virtual Lab</Text>
+          <Text style={styles.aboutText}>
+            Sebuah platform pembelajaran bahasa Inggris yang dirancang khusus untuk membantu Anda menguasai bahasa Inggris melalui berbagai metode pembelajaran interaktif.
+          </Text>
+        </Card>
       </View>
 
-      {/* Footer spacing */}
       <View style={{ height: 20 }} />
     </ScrollView>
   );
@@ -193,26 +210,30 @@ const styles = StyleSheet.create({
     marginBottom: 12,
     marginTop: 16,
   },
-  aboutCard: {
-    marginHorizontal: 12,
-    marginVertical: 8,
+  statsGrid: {
+    flexDirection: 'row',
+    paddingHorizontal: 12,
+    gap: 8,
   },
-  aboutTitle: {
-    fontSize: 18,
-    fontWeight: '600',
+  statCard: {
+    flex: 1,
+    paddingVertical: 16,
+    paddingHorizontal: 8,
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: 'white',
+    borderRadius: 12,
+  },
+  statValue: {
+    fontSize: 22,
+    fontWeight: 'bold',
     color: '#3b82f6',
-    marginBottom: 8,
+    marginBottom: 4,
   },
-  aboutText: {
-    fontSize: 14,
-    color: '#4b5563',
-    lineHeight: 20,
-    marginBottom: 12,
-  },
-  features: {
-    fontSize: 14,
+  statLabel: {
+    fontSize: 11,
     color: '#6b7280',
-    fontWeight: '500',
+    textAlign: 'center',
   },
   quickAccessContainer: {
     flexDirection: 'row',
@@ -227,16 +248,12 @@ const styles = StyleSheet.create({
     padding: 16,
     alignItems: 'center',
     justifyContent: 'center',
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 1 },
-    shadowOpacity: 0.08,
-    shadowRadius: 2,
-    elevation: 2,
     borderColor: '#e5e7eb',
     borderWidth: 1,
+    elevation: 1,
   },
   quickAccessIcon: {
-    fontSize: 36,
+    fontSize: 32,
     marginBottom: 8,
   },
   quickAccessLabel: {
@@ -245,26 +262,20 @@ const styles = StyleSheet.create({
     color: '#1f2937',
     textAlign: 'center',
   },
-  statsGrid: {
-    paddingHorizontal: 12,
-    gap: 12,
+  aboutCard: {
+    marginHorizontal: 12,
+    padding: 16,
   },
-  statCard: {
-    paddingHorizontal: 16,
-    paddingVertical: 12,
-    alignItems: 'center',
+  aboutTitle: {
+    fontSize: 16,
+    fontWeight: '600',
+    color: '#3b82f6',
     marginBottom: 8,
   },
-  statValue: {
-    fontSize: 24,
-    fontWeight: 'bold',
-    color: '#3b82f6',
-    marginBottom: 4,
-  },
-  statLabel: {
-    fontSize: 12,
-    color: '#6b7280',
-    textAlign: 'center',
+  aboutText: {
+    fontSize: 14,
+    color: '#4b5563',
+    lineHeight: 20,
   },
 });
 
