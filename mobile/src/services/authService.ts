@@ -109,7 +109,7 @@ export class AuthService {
 
       // Get user profile from users table
       const { data: userProfile, error: profileError } = await supabase
-        .from('users')
+        .from('profiles')
         .select('*')
         .eq('auth_id', authUser.user.id)
         .single();
