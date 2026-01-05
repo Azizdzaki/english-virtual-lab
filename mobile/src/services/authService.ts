@@ -18,27 +18,25 @@ export class AuthService {
 
       if (authError) throw authError;
 
-      // 2. Create user profile in users table
-      if (authData.user?.id) {
-        const { error: userError } = await supabase
-          .from('users')
-          .insert([
-            {
-              auth_id: authData.user.id,
-              email,
-              full_name: fullName,
-              learning_level: 'beginner',
-              total_quizzes_taken: 0,
-              total_score: 0,
-              average_score: 0,
-              is_active: true,
-            },
-          ]);
+      // Wait a bit for the trigger to complete
+      await new Promise((resolve) => setTimeout(resolve, 1000));
 
-        if (userError) throw userError;
+      // Fetch the created user profile
+      if (authData.user) {
+        const { data: profile, error: profileError } = await supabase
+          .from('users')
+          .select('*')
+          .eq('auth_id', authData.user.id)
+          .single();
+
+        if (profileError) {
+          console.error('Error fetching profile:', profileError);
+        }
+
+        return profile;
       }
 
-      return authData;
+      return null;
     } catch (error: any) {
       throw {
         message: error.message || 'Sign up failed',
