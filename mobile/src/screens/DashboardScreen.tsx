@@ -50,16 +50,16 @@ const DashboardScreen: React.FC<DashboardScreenProps> = ({ navigation }) => {
     loadData();
   };
 
-  // Hitung average score dari attempts atau dari user stats
-  const avgScore = user?.average_score || (attempts.length > 0
+  // 1. Average Score
+  const avgScore = user?.average_score ?? (attempts.length > 0
     ? Math.round(attempts.reduce((sum, a) => sum + (a.score || 0), 0) / attempts.length)
     : 0);
 
-  // Count passed quizzes - use user stats jika ada
-  const passedCount = user?.total_quizzes_taken || attempts.filter(a => a.passed).length;
+  // 2. Passed Quizzes
+  const passedCount = user?.total_quizzes_taken ?? attempts.filter(a => a.passed).length;
   
-  // Total quizzes taken
-  const totalQuizzesTaken = user?.total_quizzes_taken || attempts.length;
+  // 3. Total Quizzes
+  const totalQuizzesTaken = user?.total_quizzes_taken ?? attempts.length;
 
   if (isLoading) {
     return <Loading message="Memuat dashboard..." />;
