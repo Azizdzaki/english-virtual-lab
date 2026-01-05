@@ -10,6 +10,7 @@ export interface User {
   country?: string;
   learning_level: 'beginner' | 'intermediate' | 'advanced';
   total_quizzes_taken: number;
+  total_quizzes_passed: number;
   total_score: number;
   average_score: number;
   is_active: boolean;
